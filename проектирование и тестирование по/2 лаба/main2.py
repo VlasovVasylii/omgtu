@@ -1,107 +1,101 @@
 """
-Описание алгоритма решения:
-1. Структура входных данных:
-    -   Первая строка содержит количество тестовых случаев
-    -   Каждый тестовый случай начинается с тарифной сетки (24 числа)
-    -   Далее следуют записи о въезде/выезде автомобилей
-2. Основные шаги алгоритма:
-   a) Чтение тарифной сетки (24 тарифа для каждого часа)
-   b) Сбор записей по каждому автомобилю в словарь
-   c) Для каждого автомобиля:
-      - Сортировка записей по времени
-      - Поиск пар "enter-exit"
-      - Расчет стоимости для каждой поездки:
-        * Расстояние * тариф (зависит от часа въезда)
-        * +$1 за каждую поездку
-      - +$2 за счет (если были поездки)
-   d) Вывод результатов в алфавитном порядке по номеру автомобиля
-3. Особенности реализации:
-   - Все расчеты производятся в центах во избежание ошибок округления
-   - Используется timestamp для корректной сортировки записей
-   - Игнорируются записи без парных въездов/выездов
-   - Результат форматируется с двумя знаками после запятой
-4. Обработка краевых случаев:
-   - Пропуск пустых строк между тестовыми случаями
-   - Проверка наличия парных записей enter/exit
-   - Корректная обработка различных форматов времени
+Чтение входных данных
+
+Определить количество тестовых блоков.
+Считать структуру оплаты (24 числа).
+Считать записи въезда/выезда в формате (номер машины, дата, время, тип записи, км-метка).
+Обработка данных
+
+Сортировать записи по времени.
+Группировать записи по номеру автомобиля.
+Обрабатывать только пары "enter-exit".
+Вычислять расстояние и стоимость проезда.
+Расчет стоимости
+
+Вычислять километраж между "enter" и "exit".
+Определять стоимость на основе тарифа, действующего в час въезда.
+Добавлять $1 за поездку и $2 за счет.
+Вывод результатов
+
+Сортировать автомобили по номеру.
+Форматировать сумму в долларах (2 знака после запятой).
+Разделять тестовые блоки пустой строкой.
 """
 
+import sys
+from collections import defaultdict
 
-def solve():
-    import sys
-    from collections import defaultdict
 
-    def calculate_trip_cost(hour, distance, rates):
-        # Стоимость за километр для данного часа (в центах)
-        rate = rates[hour]
-        # Стоимость = (расстояние * тариф за км) в центах
-        return (distance * rate)
+def parse_input():
+    input_data = sys.stdin.read().strip().split('\n')
+    index = 0
+    num_blocks = int(input_data[index])
+    index += 1
+    blocks = []
 
-    # Читаем входные данные
-    data = sys.stdin.read().splitlines()
-    num_cases = int(data[0])
-    current_line = 1
+    for _ in range(num_blocks):
+        while index < len(input_data) and input_data[index] == "":
+            index += 1
+        fees = list(map(int, input_data[index].split()))
+        index += 1
+        records = []
+        while index < len(input_data) and input_data[index] != "":
+            records.append(input_data[index])
+            index += 1
+        blocks.append((fees, records))
 
-    for case in range(num_cases):
-        # Пропускаем пустые строки
-        while current_line < len(data) and not data[current_line].strip():
-            current_line += 1
+    return blocks
 
-        # Читаем тарифы
-        rates = list(map(int, data[current_line].split()))
-        current_line += 1
 
-        # Собираем записи по машинам
-        car_records = defaultdict(list)
-        while current_line < len(data) and data[current_line].strip():
-            parts = data[current_line].split()
-            plate = parts[0]
-            time = parts[1]
-            event = parts[2].lower()
-            location = int(parts[3])
+def process_block(fees, records):
+    trips = defaultdict(list)
 
-            month, day, hour, minute = map(int, time.split(':'))
-            timestamp = month * 31 * 24 * 60 + day * 24 * 60 + hour * 60 + minute
+    for record in records:
+        parts = record.split()
+        plate = parts[0]
+        month, day, hour, minute = map(int, parts[1].split(':'))
+        timestamp = (day, hour, minute)
+        action = parts[2]
+        km_marker = int(parts[3])
+        trips[plate].append((timestamp, action, km_marker))
 
-            car_records[plate].append((timestamp, hour, event, location))
-            current_line += 1
+    bills = {}
+    for plate in trips:
+        trips[plate].sort()
+        total_cost = 2  # $2 for the bill processing fee
+        i = 0
+        while i < len(trips[plate]) - 1:
+            if trips[plate][i][1] == "enter" and trips[plate][i + 1][1] == "exit":
+                day, hour, minute = trips[plate][i][0]
+                km_start = trips[plate][i][2]
+                km_end = trips[plate][i + 1][2]
 
-        # Обрабатываем записи каждой машины
-        bills = {}
-        for plate, records in car_records.items():
-            records.sort()  # Сортировка по времени
-            total_cost = 0
-            i = 0
+                distance = abs(km_end - km_start)
+                cost = distance * fees[hour] / 100 + 1  # Convert cents to dollars, add $1 trip fee
+                total_cost += cost
+                i += 2
+            else:
+                i += 1
 
-            while i < len(records) - 1:
-                current = records[i]
-                next_record = records[i + 1]
+        if total_cost > 2:  # Ignore if no valid trips were found
+            bills[plate] = total_cost
 
-                if current[2] == "enter" and next_record[2] == "exit":
-                    # Вычисляем расстояние
-                    distance = abs(next_record[3] - current[3])
-                    # Вычисляем стоимость поездки в центах
-                    trip_cost = calculate_trip_cost(current[1], distance, rates)
-                    # Добавляем $1 (100 центов) за поездку
-                    trip_cost += 100
-                    total_cost += trip_cost
-                    i += 2
-                else:
-                    i += 1
+    return sorted(bills.items())
 
-            if total_cost > 0:
-                # Добавляем $2 (200 центов) за счёт
-                total_cost += 200
-                bills[plate] = total_cost
 
-        # Выводим результаты
-        for plate in sorted(bills.keys()):
-            print(f"{plate} ${bills[plate] / 100:.2f}")
+def main():
+    blocks = parse_input()
+    results = []
 
-        # Печатаем пустую строку между тестовыми случаями, кроме последнего
-        if case < num_cases - 1:
-            print()
+    for i, (fees, records) in enumerate(blocks):
+        processed = process_block(fees, records)
+        if i > 0:
+            results.append("")
+        for plate, cost in processed:
+            results.append(f"{plate} ${cost:.2f}")
+
+    print("\n".join(results))
 
 
 if __name__ == "__main__":
-    solve()
+    main()
