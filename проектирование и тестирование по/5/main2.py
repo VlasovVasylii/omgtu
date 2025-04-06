@@ -1,138 +1,98 @@
 """
-Описание алгоритма:
+Используем алгоритм Дейкстры
+для вычисления кратчайших расстояний между всеми парами перекрестков.
 
-Чтение входных данных и построение графа.
-Для каждого тестового блока читаются количество уже существующих пожарных депо
-и количество перекрёстков. Затем считываются номера перекрёстков с пожарными депо и список рёбер (дорог) графа.
-Граф хранится в виде списка смежности, где для каждого перекрёстка фиксируются все его соседние перекрёстки с весами рёбер.
+Для каждого потенциального нового депо вычисляем, как
+изменится максимальное расстояние до ближайшего депо.
 
-Вычисление расстояний до ближайшего депо.
-Сначала с помощью модифицированного алгоритма Дейкстры (мульти-источников)
- вычисляются кратчайшие расстояния d[i] от каждого перекрёстка до ближайшего уже существующего пожарного депо.
-
-Перебор кандидатов для нового депо.
-Для каждого перекрёстка (от 1 до i) считаем, что на нём можно построить новый депо.
-Снова с помощью алгоритма Дейкстры вычисляем кратчайшие расстояния от этого кандидата до всех перекрёстков.
-Для каждого перекрёстка берём минимум из двух значений: расстояния до ближайшего существующего депо и расстояния
-до кандидата. Тогда максимальное из таких минимальных расстояний по всем перекрёсткам
-будет характеризовать качество выбранного кандидата.
-
-Выбор лучшего кандидата.
-Среди всех кандидатов выбирается тот, у которого значение максимального расстояния минимально.
- При равенстве выбирается кандидат с наименьшим номером перекрёстка.
-
-Формирование вывода.
-Для каждого тестового блока выводится номер перекрёстка, на котором нужно построить депо,
-при этом блоки разделяются пустой строкой.
+Выбираем перекресток с наименьшим максимальным расстоянием и
+наименьшим номером.
 """
 
 import sys
 import heapq
-
-
-def dijkstra(graph, start, n):
-    """
-    Алгоритм Дейкстры для нахождения кратчайших расстояний от вершины start до всех остальных.
-    graph: список смежности.
-    """
-    INF = float('inf')
-    dist = [INF] * (n + 1)
-    dist[start] = 0
-    hq = [(0, start)]
-    while hq:
-        d, u = heapq.heappop(hq)
-        if d > dist[u]:
-            continue
-        for v, w in graph[u]:
-            nd = d + w
-            if nd < dist[v]:
-                dist[v] = nd
-                heapq.heappush(hq, (nd, v))
-    return dist
-
-
-def multi_source_dijkstra(graph, sources, n):
-    """
-    Мульти-источниковая Дейкстра.
-    sources: список вершин-источников.
-    Возвращает список dist, где dist[u] – расстояние от ближайшего источника до u.
-    """
-    INF = float('inf')
-    dist = [INF] * (n + 1)
-    hq = []
-    for src in sources:
-        dist[src] = 0
-        heapq.heappush(hq, (0, src))
-    while hq:
-        d, u = heapq.heappop(hq)
-        if d > dist[u]:
-            continue
-        for v, w in graph[u]:
-            nd = d + w
-            if nd < dist[v]:
-                dist[v] = nd
-                heapq.heappush(hq, (nd, v))
-    return dist
-
-
-def solve_problem(input_str):
-    """
-    Основная функция решения задачи.
-    Принимает строку с входными данными, возвращает строку с результатом.
-    """
-    lines = input_str.strip().splitlines()
-    lines = [line.strip() for line in lines if line.strip() != '']
-
-    t = int(lines[0])
-    index = 1
-    outputs = []
-
-    for _ in range(t):
-        f, i = map(int, lines[index].split())
-        index += 1
-        fire_stations = []
-
-        for _ in range(f):
-            fire_stations.append(int(lines[index]))
-            index += 1
-
-        graph = [[] for _ in range(i + 1)]
-        while index < len(lines) and len(lines[index].split()) == 3:
-            u, v, w = map(int, lines[index].split())
-            graph[u].append((v, w))
-            graph[v].append((u, w))
-            index += 1
-
-        # Шаг 1: вычисляем расстояния до ближайшего уже существующего депо.
-        base_dist = multi_source_dijkstra(graph, fire_stations, i)
-
-        best_candidate = None
-        best_max = float('inf')
-
-        # Шаг 2: перебираем все перекрёстки как кандидаты для нового депо
-        for cand in range(1, i + 1):
-            # Считаем расстояния от кандидата до всех других вершин
-            cand_dist = dijkstra(graph, cand, i)
-            current_max = 0
-            # Для каждого перекрёстка рассматриваем минимальное расстояние до депо (существующего или кандидата)
-            for u in range(1, i + 1):
-                current_max = max(current_max, min(base_dist[u], cand_dist[u]))
-
-            # Выбираем кандидата с минимальным максимальным расстоянием
-            if current_max < best_max or (current_max == best_max and cand < best_candidate):
-                best_max = current_max
-                best_candidate = cand
-
-        outputs.append(str(best_candidate))
-
-    return "\n\n".join(outputs)
+from collections import defaultdict
 
 
 def main():
-    input_str = sys.stdin.read()
-    output_str = solve_problem(input_str)
-    sys.stdout.write(output_str)
+    input = sys.stdin.read().split('\n')
+    ptr = 0
+    T = int(input[ptr])
+    ptr += 1
+    for case in range(T):
+        # Skip empty lines
+        while ptr < len(input) and input[ptr].strip() == '':
+            ptr += 1
+        if ptr >= len(input):
+            break
+
+        # Read f and i
+        f, i = map(int, input[ptr].split())
+        ptr += 1
+
+        # Read depots
+        depots = []
+        for _ in range(f):
+            while ptr < len(input) and input[ptr].strip() == '':
+                ptr += 1
+            if ptr >= len(input):
+                break
+            depots.append(int(input[ptr]))
+            ptr += 1
+
+        # Build graph
+        graph = defaultdict(list)
+        while ptr < len(input):
+            line = input[ptr].strip()
+            if line == '':
+                ptr += 1
+                continue
+            if not all(x.isdigit() for x in line.split()):
+                break
+            u, v, w = map(int, line.split())
+            graph[u].append((v, w))
+            graph[v].append((u, w))
+            ptr += 1
+
+        # Compute all pairs shortest paths using Dijkstra
+        INF = float('inf')
+        dist = [[INF] * (i + 1) for _ in range(i + 1)]
+        for s in range(1, i + 1):
+            dist[s][s] = 0
+            heap = [(0, s)]
+            while heap:
+                d, u = heapq.heappop(heap)
+                if d > dist[s][u]:
+                    continue
+                for v, w in graph[u]:
+                    if dist[s][v] > d + w:
+                        dist[s][v] = d + w
+                        heapq.heappush(heap, (dist[s][v], v))
+
+        # Compute current min distances
+        min_dist = [INF] * (i + 1)
+        for u in range(1, i + 1):
+            for d in depots:
+                if dist[d][u] < min_dist[u]:
+                    min_dist[u] = dist[d][u]
+
+        # Find best new depot
+        best_max = INF
+        best_k = 1
+        for k in range(1, i + 1):
+            temp_min = min_dist.copy()
+            for u in range(1, i + 1):
+                if dist[k][u] < temp_min[u]:
+                    temp_min[u] = dist[k][u]
+            current_max = max(temp_min[1:i + 1])
+            if current_max < best_max or (current_max == best_max and k < best_k):
+                best_max = current_max
+                best_k = k
+
+        print(best_k)
+        if case < T - 1:
+            print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

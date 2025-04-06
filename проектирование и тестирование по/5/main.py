@@ -1,128 +1,105 @@
-"""
-Алгоритм
-Построение графа переходов:
+from typing import List, Tuple, Set
 
-Каждая клетка лабиринта обрабатывается для определения переходов
-между направлениями входа и выхода в зависимости от символа ('/' или '').
-
-Для каждой клетки и каждого направления входа (север, восток, юг, запад)
-определяется направление выхода и следующая клетка.
-
-Обход графа:
-
-Для каждого узла (позиция и направление) запускается поиск
-циклов с использованием обхода в глубину (DFS).
-
-При обнаружении цикла подсчитывается количество уникальных клеток,
-через которые он проходит, что определяет длину цикла.
-
-Сбор результатов:
-
-После обхода всех узлов подсчитывается количество циклов
-и определяется максимальная длина.
-"""
-
-import sys
+# Направления для движения между клетками по сторонам
+# (dy, dx, from_part, to_part)
+DIRS = [
+    (-1, 0, 0, 2),  # верх
+    (0, 1, 1, 3),  # право
+    (1, 0, 2, 0),  # низ
+    (0, -1, 3, 1),  # влево
+]
 
 
-def main():
-    maze_num = 0
-    while True:
-        w, h = map(int, sys.stdin.readline().split())
-        if w == 0 and h == 0:
-            break
-        maze_num += 1
-        maze = []
+class MazeSolver:
+    def __init__(self, w: int, h: int, grid: List[str]):
+        self.w = w
+        self.h = h
+        self.grid = grid
+        self.visited = [[[False] * 4 for _ in range(w)] for _ in range(h)]
+        self.cycles = 0
+        self.max_len = 0
 
-        for _ in range(h):
-            line = sys.stdin.readline().strip()
-            maze.append(line)
+    def _dfs(self, y: int, x: int, part: int) -> Tuple[int, bool]:
+        stack = [(y, x, part)]
+        self.visited[y][x][part] = True
+        visited_parts: Set[Tuple[int, int, int]] = set()
+        visited_cells: Set[Tuple[int, int]] = set()
+        is_cycle = True
 
-        # Строим граф переходов
-        graph = dict()
-        directions = ['N', 'E', 'S', 'W']
-        for y in range(h):
-            for x in range(w):
-                cell = maze[y][x]
-                for dir_in in directions:
-                    key = (x, y, dir_in)
-                    if cell == '/':
-                        if dir_in == 'N':
-                            next_dir_in = 'W'
-                            next_x, next_y = x + 1, y
-                        elif dir_in == 'E':
-                            next_dir_in = 'S'
-                            next_x, next_y = x, y - 1
-                        elif dir_in == 'S':
-                            next_dir_in = 'E'
-                            next_x, next_y = x - 1, y
-                        elif dir_in == 'W':
-                            next_dir_in = 'N'
-                            next_x, next_y = x, y + 1
+        while stack:
+            cy, cx, cp = stack.pop()
+            visited_parts.add((cy, cx, cp))
+            visited_cells.add((cy, cx))
+
+            ch = self.grid[cy][cx]
+
+            # Внутренние переходы внутри клетки
+            if ch == '/':
+                if cp == 0 and not self.visited[cy][cx][3]:
+                    self.visited[cy][cx][3] = True
+                    stack.append((cy, cx, 3))
+                elif cp == 3 and not self.visited[cy][cx][0]:
+                    self.visited[cy][cx][0] = True
+                    stack.append((cy, cx, 0))
+                elif cp == 1 and not self.visited[cy][cx][2]:
+                    self.visited[cy][cx][2] = True
+                    stack.append((cy, cx, 2))
+                elif cp == 2 and not self.visited[cy][cx][1]:
+                    self.visited[cy][cx][1] = True
+                    stack.append((cy, cx, 1))
+
+            elif ch == '\\':
+                if cp == 0 and not self.visited[cy][cx][1]:
+                    self.visited[cy][cx][1] = True
+                    stack.append((cy, cx, 1))
+                elif cp == 1 and not self.visited[cy][cx][0]:
+                    self.visited[cy][cx][0] = True
+                    stack.append((cy, cx, 0))
+                elif cp == 2 and not self.visited[cy][cx][3]:
+                    self.visited[cy][cx][3] = True
+                    stack.append((cy, cx, 3))
+                elif cp == 3 and not self.visited[cy][cx][2]:
+                    self.visited[cy][cx][2] = True
+                    stack.append((cy, cx, 2))
+
+            # Переходы к соседним клеткам
+            for dy, dx, from_p, to_p in DIRS:
+                if cp == from_p:
+                    ny, nx = cy + dy, cx + dx
+                    if 0 <= ny < self.h and 0 <= nx < self.w:
+                        if not self.visited[ny][nx][to_p]:
+                            self.visited[ny][nx][to_p] = True
+                            stack.append((ny, nx, to_p))
                     else:
-                        if dir_in == 'N':
-                            next_dir_in = 'E'
-                            next_x, next_y = x - 1, y
-                        elif dir_in == 'E':
-                            next_dir_in = 'N'
-                            next_x, next_y = x, y + 1
-                        elif dir_in == 'S':
-                            next_dir_in = 'W'
-                            next_x, next_y = x + 1, y
-                        elif dir_in == 'W':
-                            next_dir_in = 'S'
-                            next_x, next_y = x, y - 1
-                    # Проверяем границы
-                    if 0 <= next_x < w and 0 <= next_y < h:
-                        graph[key] = (next_x, next_y, next_dir_in)
-                    else:
-                        graph[key] = None
-
-        # Поиск циклов
-        visited = set()
-        cycles = []
-
-        for y in range(h):
-            for x in range(w):
-                for dir_in in directions:
-                    start_node = (x, y, dir_in)
-                    if start_node not in visited and start_node in graph:
-                        current_node = start_node
-                        path = []
-                        cells = set()
                         is_cycle = False
-                        local_visited = set()
-                        while True:
-                            if current_node is None:
-                                break
-                            if current_node in local_visited:
-                                if current_node == start_node and len(path) > 0:
-                                    is_cycle = True
-                                break
-                            if current_node in visited:
-                                break
-                            local_visited.add(current_node)
-                            path.append(current_node)
-                            cx, cy, _ = current_node
-                            cells.add((cx, cy))
-                            current_node = graph.get(current_node, None)
 
+        return len(visited_cells), is_cycle
+
+    def solve(self) -> Tuple[int, int]:
+        for y in range(self.h):
+            for x in range(self.w):
+                for p in range(4):
+                    if not self.visited[y][x][p]:
+                        length, is_cycle = self._dfs(y, x, p)
                         if is_cycle:
-                            cycles.append(len(cells))
-                            visited.update(local_visited)
-                        else:
-                            visited.update(local_visited)
-
-        # Подготовка результата
-        print(f"Maze #{maze_num}:")
-        if not cycles:
-            print("There are no cycles.")
-        else:
-            num_cycles = len(cycles)
-            max_len = max(cycles)
-            print(f"{num_cycles} Cycles; the longest has length {max_len}.")
-        print()
+                            self.cycles += 1
+                            self.max_len = max(self.max_len, length)
+        return self.cycles, self.max_len
 
 
 if __name__ == "__main__":
-    main()
+    idx = 1
+    while True:
+        w, h = map(int, input().split())
+        if w == 0 and h == 0:
+            break
+        grid = []
+        for _ in range(h):
+            grid.append(input())
+        solver = MazeSolver(w, h, grid)
+        count, longest = solver.solve()
+        if count == 0:
+            print(f"Maze #{idx}:\nThere are no cycles.\n")
+        else:
+            print(f"Maze #{idx}:\n{count} Cycles; the longest has length {longest}.\n")
+        idx += 1

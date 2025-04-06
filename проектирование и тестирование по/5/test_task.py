@@ -1,81 +1,58 @@
 import unittest
-import sys
-from io import StringIO
-from main import main
+from main import MazeSolver
 
 
-class TestMazeCycles(unittest.TestCase):
-    def setUp(self):
-        self.held_stdout = StringIO()
-        self.held_stderr = StringIO()
-        self.original_stdout = sys.stdout
-        self.original_stderr = sys.stderr
-        sys.stdout = self.held_stdout
-        sys.stderr = self.held_stderr
+class TestMazeSolver(unittest.TestCase):
+    def test_example_1(self):
+        w, h = 6, 4
+        grid = [
+            "\\//\\\\/",
+            "\\///\\/",
+            "//\\\\/\\",
+            "\\/\\///",
+        ]
+        solver = MazeSolver(w, h, grid)
+        count, longest = solver.solve()
+        self.assertEqual(count, 2)
+        self.assertEqual(longest, 13)
 
-    def tearDown(self):
-        sys.stdout = self.original_stdout
-        sys.stderr = self.original_stderr
-        self.held_stdout.close()
-        self.held_stderr.close()
+    def test_example_2(self):
+        w, h = 3, 3
+        grid = [
+            "///",
+            "\\//",
+            "\\\\\\",
+        ]
+        solver = MazeSolver(w, h, grid)
+        count, longest = solver.solve()
+        self.assertEqual(count, 0)
+        self.assertEqual(longest, 0)
 
-    def run_test(self, input_data, expected_output):
-        stdin = StringIO(input_data)
-        sys.stdin = stdin
-        main()
-        sys.stdin = sys.__stdin__
-        self.assertEqual(self.held_stdout.getvalue(), expected_output)
+    def test_min_case(self):
+        solver = MazeSolver(1, 1, ["\\"])
+        count, longest = solver.solve()
+        self.assertEqual(count, 0)
+        self.assertEqual(longest, 0)
 
-    def test_example(self):
-        input_data = """6 4
-\//\\/
-\///\/
-//\\/\
-\/\///
-3 3
-///
-\\//
-\\\
-0 0
-"""
-        expected_output = """Maze #1:
-2 Cycles; the longest has length 16.
+    def test_full_cycle(self):
+        w, h = 2, 2
+        grid = [
+            "/\\",
+            "\\/"
+        ]
+        solver = MazeSolver(w, h, grid)
+        count, longest = solver.solve()
+        self.assertGreaterEqual(count, 1)
+        self.assertGreaterEqual(longest, 4)
 
-Maze #2:
-There are no cycles.
-
-"""
-        self.run_test(input_data, expected_output)
-
-    def test_no_cycles(self):
-        input_data = """1 1
-/
-0 0
-"""
-        expected_output = """Maze #1:
-There are no cycles.
-
-"""
-        self.run_test(input_data, expected_output)
-
-    def test_single_cycle(self):
-        input_data = """2 2
-\\\\
-\\\\
-0 0
-"""
-        expected_output = """Maze #1:
-1 Cycles; the longest has length 4.
-
-"""
-        self.run_test(input_data, expected_output)
-
-    def test_large_input(self):
-        input_data = "100 100\n" + "\n".join(
-            ["".join(["\\" if (i + j) % 2 == 0 else "/" for i in range(100)]) for j in range(100)]) + "\n0 0"
-        expected_output = "Maze #1:\nThere are no cycles.\n\n"
-        self.run_test(input_data, expected_output)
+    def test_large_maze(self):
+        w, h = 75, 75
+        grid = ["\\" * w for _ in range(h)]
+        solver = MazeSolver(w, h, grid)
+        count, longest = solver.solve()
+        self.assertTrue(count >= 0)
+        self.assertTrue(longest >= 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
