@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои задачи</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .form-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            min-height: 100px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .btn-edit {
+            background-color: #2196F3;
+        }
+
+        .btn-edit:hover {
+            background-color: #0b7dda;
+        }
+
+        .btn-delete {
+            background-color: #f44336;
+        }
+
+        .btn-delete:hover {
+            background-color: #d32f2f;
+        }
+
+        .equipment-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .equipment-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .equipment-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .property {
+            margin-bottom: 8px;
+        }
+
+        .property-name {
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+
+        .card-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 15px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<h1>Список моих задач</h1>
+
+<div class="form-container">
+    <h2 id="formTitle">Добавить новую задачу</h2>
+    <form id="taskForm">
+        <input type="hidden" id="taskId">
+        <div class="form-group">
+            <label for="title">Название:</label>
+            <input type="text" id="title" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Описание:</label>
+            <textarea id="description" required></textarea>
+        </div>
+        <div class="form-group">
+            <label for="category">Категория:</label>
+            <select id="category" required>
+                <option value="">Выберите категорию</option>
+                <option value="Работа">Работа</option>
+                <option value="Дом">Дом</option>
+                <option value="Учеба">Учеба</option>
+                <option value="Другое">Другое</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="dueDate">Дата выполнения:</label>
+            <input type="date" id="dueDate" required>
+        </div>
+        <div class="form-group">
+            <label for="priority">Приоритет:</label>
+            <select id="priority" required>
+                <option value="">Выберите приоритет</option>
+                <option value="Низкий">Низкий</option>
+                <option value="Средний">Средний</option>
+                <option value="Высокий">Высокий</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" id="submitBtn">Добавить задачу</button>
+            <button type="button" id="cancelBtn" class="hidden">Отменить</button>
+        </div>
+    </form>
+    <div id="message" class=""></div>
+</div>
+
+<h2>Мои задачи</h2>
+<div id="taskList" class="equipment-container"></div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        loadTasks();
+
+        document.getElementById('taskForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const taskId = document.getElementById('taskId').value;
+            if (taskId) {
+                updateTask(taskId);
+            } else {
+                addTask();
+            }
+        });
+
+        document.getElementById('cancelBtn').addEventListener('click', function() {
+            resetForm();
+        });
+    });
+
+    function resetForm() {
+        document.getElementById('taskForm').reset();
+        document.getElementById('taskId').value = '';
+        document.getElementById('formTitle').textContent = 'Добавить новую задачу';
+        document.getElementById('submitBtn').textContent = 'Добавить задачу';
+        document.getElementById('cancelBtn').classList.add('hidden');
+    }
+
+    function loadTasks() {
+        fetch('tasks')
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка сети');
+                return response.json();
+            })
+            .then(data => displayTasks(data))
+            .catch(error => showMessage(error.message, 'error'));
+    }
+
+    function addTask() {
+        const task = {
+            title: document.getElementById('title').value,
+            description: document.getElementById('description').value,
+            category: document.getElementById('category').value,
+            dueDate: document.getElementById('dueDate').value,
+            priority: document.getElementById('priority').value
+        };
+
+        fetch('tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(task)
+        })
+            .then(response => {
+                if (!response.ok) return response.json().then(err => {
+                    throw new Error(err.message);
+                });
+                return response.json();
+            })
+            .then(() => {
+                showMessage('Задача успешно добавлена', 'success');
+                document.getElementById('taskForm').reset();
+                loadTasks();
+            })
+            .catch(error => showMessage(error.message, 'error'));
+    }
+
+    function updateTask(taskId) {
+        const task = {
+            title: document.getElementById('title').value,
+            description: document.getElementById('description').value,
+            category: document.getElementById('category').value,
+            dueDate: document.getElementById('dueDate').value,
+            priority: document.getElementById('priority').value
+        };
+
+        fetch(`tasks/${taskId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(task)
+        })
+            .then(response => {
+                if (!response.ok) return response.json().then(err => {
+                    throw new Error(err.message);
+                });
+                return response.json();
+            })
+            .then(() => {
+                showMessage('Задача успешно обновлена', 'success');
+                resetForm();
+                loadTasks();
+            })
+            .catch(error => showMessage(error.message, 'error'));
+    }
+
+    function deleteTask(taskId) {
+        if (!confirm('Вы уверены, что хотите удалить эту задачу?')) {
+            return;
+        }
+
+        fetch(`tasks/${taskId}`, {
+            method: 'DELETE'
+        })
+            .then(response => {
+                if (!response.ok) return response.json().then(err => {
+                    throw new Error(err.message);
+                });
+                return response.json();
+            })
+            .then(() => {
+                showMessage('Задача успешно удалена', 'success');
+                loadTasks();
+            })
+            .catch(error => showMessage(error.message, 'error'));
+    }
+
+    function editTask(task) {
+        document.getElementById('taskId').value = task.id;
+        document.getElementById('title').value = task.title;
+        document.getElementById('description').value = task.description;
+        document.getElementById('category').value = task.category;
+        document.getElementById('dueDate').value = task.dueDate;
+        document.getElementById('priority').value = task.priority;
+        
+        document.getElementById('formTitle').textContent = 'Редактировать задачу';
+        document.getElementById('submitBtn').textContent = 'Сохранить изменения';
+        document.getElementById('cancelBtn').classList.remove('hidden');
+        
+        // Прокрутка к форме редактирования
+        document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function displayTasks(taskList) {
+        const container = document.getElementById('taskList');
+        container.innerHTML = '';
+
+        if (!taskList || taskList.length === 0) {
+            container.innerHTML = '<p>Список задач пуст. Добавьте первую задачу!</p>';
+            return;
+        }
+
+        taskList.forEach(task => {
+            const card = document.createElement('div');
+            card.className = 'equipment-card';
+
+            card.innerHTML = `
+            <h3>${task.title}</h3>
+            <div class="property"><span class="property-name">Описание:</span> ${task.description}</div>
+            <div class="property"><span class="property-name">Категория:</span> ${task.category}</div>
+            <div class="property"><span class="property-name">Дата выполнения:</span> ${task.dueDate}</div>
+            <div class="property"><span class="property-name">Приоритет:</span> ${task.priority}</div>
+            <div class="card-actions">
+                <button class="btn-edit" onclick="editTask(${JSON.stringify(task).replace(/"/g, '&quot;')})">Редактировать</button>
+                <button class="btn-delete" onclick="deleteTask(${task.id})">Удалить</button>
+            </div>
+        `;
+
+            container.appendChild(card);
+        });
+    }
+
+    function showMessage(text, type) {
+        const messageDiv = document.getElementById('message');
+        messageDiv.textContent = text;
+        messageDiv.className = type;
+
+        setTimeout(() => {
+            messageDiv.textContent = '';
+            messageDiv.className = '';
+        }, 5000);
+    }
+</script>
+</body>
+</html>
